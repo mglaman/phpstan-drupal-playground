@@ -4,18 +4,9 @@ declare(strict_types = 1);
 
 use Composer\InstalledVersions;
 use Nette\Neon\Neon;
-use PHPStan\AnalysedCodeException;
 use PHPStan\Analyser\Analyser;
-use PHPStan\Analyser\Error;
-use PHPStan\Analyser\RuleErrorTransformer;
-use PHPStan\Analyser\ScopeContext;
-use PHPStan\Analyser\ScopeFactory;
-use PHPStan\BetterReflection\NodeCompiler\Exception\UnableToCompileNode;
-use PHPStan\BetterReflection\Reflection\Exception\CircularReference;
-use PHPStan\BetterReflection\Reflector\Exception\IdentifierNotFound;
-use PHPStan\Collectors\CollectedData;
+use PHPStan\Analyser\AnalyserResultFinalizer;
 use PHPStan\DependencyInjection\ContainerFactory;
-use PHPStan\Node\CollectedDataNode;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 
 require __DIR__.'/vendor/autoload.php';
@@ -33,41 +24,6 @@ $phpstanVersion = InstalledVersions::getPrettyVersion('phpstan/phpstan');
 $phpstanDrupalVersion = InstalledVersions::getPrettyVersion('mglaman/phpstan-drupal');
 // @note: we use the constant here, because analysis fails for _some reason_ unless the class is loaded ahead of time.
 $drupalCoreVersion = \Drupal::VERSION;
-
-/**
- * @param CollectedData[] $collectedData
- * @return Error[]
- */
-function getCollectedDataErrors(\PHPStan\DependencyInjection\Container $container, array $collectedData): array
-{
-	$nodeType = CollectedDataNode::class;
-	$node = new CollectedDataNode($collectedData, true);
-	$file = 'N/A';
-	$scope = $container->getByType(ScopeFactory::class)->create(ScopeContext::create($file));
-	$ruleRegistry = $container->getByType(\PHPStan\Rules\Registry::class);
-	$ruleErrorTransformer = $container->getByType(RuleErrorTransformer::class);
-	$errors = [];
-	foreach ($ruleRegistry->getRules($nodeType) as $rule) {
-		try {
-			$ruleErrors = $rule->processNode($node, $scope);
-		} catch (AnalysedCodeException $e) {
-			$errors[] = new Error($e->getMessage(), $file, $node->getLine(), $e, null, null, $e->getTip());
-			continue;
-		} catch (IdentifierNotFound $e) {
-			$errors[] = new Error(sprintf('Reflection error: %s not found.', $e->getIdentifier()->getName()), $file, $node->getLine(), $e, null, null, 'Learn more at https://phpstan.org/user-guide/discovering-symbols');
-			continue;
-		} catch (UnableToCompileNode | CircularReference $e) {
-			$errors[] = new Error(sprintf('Reflection error: %s', $e->getMessage()), $file, $node->getLine(), $e);
-			continue;
-		}
-
-		foreach ($ruleErrors as $ruleError) {
-			$errors[] = $ruleErrorTransformer->transform($ruleError, $scope, $nodeType, $node->getLine());
-		}
-	}
-
-	return $errors;
-}
 
 function clearTemp($tmpDir): void
 {
@@ -117,13 +73,7 @@ return function(array $event) use ($phpstanVersion, $phpstanDrupalVersion, $drup
 		'parameters' => [
 			'inferPrivatePropertyTypeFromConstructor' => true,
 			'treatPhpDocTypesAsCertain' => $event['treatPhpDocTypesAsCertain'] ?? true,
-			'phpVersion' => $event['phpVersion'] ?? 80000,
-			'featureToggles' => [
-				'disableRuntimeReflectionProvider' => true,
-			],
-            'drupal' => [
-                'drupal_root' => InstalledVersions::getInstallPath('drupal/core'),
-            ],
+			'phpVersion' => $event['phpVersion'] ?? 80300,
 		],
 		'services' => [
 			'currentPhpVersionSimpleParser!' => [
@@ -136,7 +86,7 @@ return function(array $event) use ($phpstanVersion, $phpstanDrupalVersion, $drup
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/ReflectionUnionType.php';
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/ReflectionIntersectionType.php';
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/ReflectionAttribute.php';
-	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/Attribute.php';
+	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/' . (PHP_VERSION_ID < 80500 ? 'Attribute84.php' : 'Attribute85.php');
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/Enum/UnitEnum.php';
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/Enum/BackedEnum.php';
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/Enum/ReflectionEnum.php';
@@ -169,14 +119,10 @@ return function(array $event) use ($phpstanVersion, $phpstanDrupalVersion, $drup
 	/** @var Analyser $analyser */
 	$analyser = $container->getByType(Analyser::class);
 	$analyserResult = $analyser->analyse([$codePath], null, null, $debug, [$codePath]);
-	$hasInternalErrors = count($analyserResult->getInternalErrors()) > 0 || $analyserResult->hasReachedInternalErrorsCountLimit();
-	$results = $analyserResult->getErrors();
 
-    if (!$hasInternalErrors) {
-		foreach (getCollectedDataErrors($container, $analyserResult->getCollectedData()) as $error) {
-			$results[] = $error;
-		}
-	}
+	/** @var AnalyserResultFinalizer $analyserResultFinalizer */
+	$analyserResultFinalizer = $container->getByType(AnalyserResultFinalizer::class);
+	$results = $analyserResultFinalizer->finalize($analyserResult, true, $debug)->getErrors();
 
 	error_clear_last();
 

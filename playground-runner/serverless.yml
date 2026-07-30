@@ -12,9 +12,13 @@ provider:
 plugins:
     - ./vendor/bref/bref
 
+package:
+  patterns:
+    - '!node_modules/**'
+
 functions:
   analyze:
     handler: analyze.php
     description: ''
     timeout: 28
-    runtime: php-81
+    runtime: php-84

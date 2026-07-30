@@ -24,7 +24,7 @@ jobs:
         uses: "shivammathur/setup-php@v2"
         with:
           coverage: "none"
-          php-version: "8.1"
+          php-version: "8.4"
       - name: "npm ci"
         working-directory: ./playground-runner
         run: "npm ci"
