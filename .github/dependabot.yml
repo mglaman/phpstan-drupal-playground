@@ -1,30 +1,32 @@
 version: 2
 updates:
+  # Runner composer deps are intentionally absent: the update-runner-deps
+  # workflow updates, tests, and deploys them automatically each month.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-  - package-ecosystem: "composer"
-    directory: "/playground-runner"
-    schedule:
-      interval: "weekly"
-    ignore:
-      - dependency-name: "drupal/core*"
-        update-types: ["version-update:semver-major"]
-    groups:
-      drupal-core:
-        patterns:
-          - "drupal/core"
-          - "drupal/core-dev"
+      interval: "monthly"
   - package-ecosystem: "npm"
     directory: "/playground-runner"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      runner-tooling:
+        patterns:
+          - "*"
   - package-ecosystem: "npm"
     directory: "/playground-api"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      api-dependencies:
+        patterns:
+          - "*"
   - package-ecosystem: "npm"
     directory: "/website"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      website-dependencies:
+        patterns:
+          - "*"

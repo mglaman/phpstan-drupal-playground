@@ -1,0 +1,46 @@
+name: "Update runner dependencies"
+on:
+  schedule:
+    # Monthly on the 1st. The playground's value is showing current
+    # phpstan-drupal behavior, so the runner keeps itself up to date.
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  update:
+    name: "Update, test, deploy"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "Install PHP"
+        uses: "shivammathur/setup-php@v2"
+        with:
+          coverage: "none"
+          php-version: "8.4"
+      - name: "composer update"
+        working-directory: ./playground-runner
+        run: "composer update --no-interaction --no-progress"
+      - name: "Test"
+        working-directory: ./playground-runner
+        run: "composer test"
+      - name: "Commit and deploy"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet playground-runner/composer.lock; then
+            echo "Dependencies already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add playground-runner/composer.lock
+          git commit -m "Update runner dependencies"
+          git push
+          # Pushes made with the workflow token do not trigger other
+          # workflows, so start the deploy explicitly.
+          gh workflow run deploy-playground-runner.yml --ref main

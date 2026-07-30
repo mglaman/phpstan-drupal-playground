@@ -43,7 +43,12 @@ return function(array $event) use ($phpstanVersion, $phpstanDrupalVersion, $drup
     if (!is_dir($tmpDir)) {
         mkdir($tmpDir);
     }
-	clearTemp($tmpDir);
+	// Compiled DI containers and PHPStan's file caches are safe to reuse
+	// across warm invocations now that config files are content-addressed;
+	// only reclaim the space when /tmp runs low.
+	if (disk_free_space(sys_get_temp_dir()) < 100 * 1024 * 1024) {
+		clearTemp($tmpDir);
+	}
     $debug = $event['debug'] ?? false;
 	$code = $event['code'];
 	$level = $event['level'];

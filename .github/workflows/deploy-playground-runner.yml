@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/deploy-playground-runner.yml'
       - 'playground-runner/**'
+  workflow_dispatch:
 concurrency: api_build
 jobs:
   deploy:

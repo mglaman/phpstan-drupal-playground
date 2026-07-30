@@ -113,6 +113,15 @@ PHP;
         self::assertSame('phpstan.parse', $errors[0]['identifier']);
     }
 
+    public function testWarmInvocationWithChangedCode(): void
+    {
+        $withError = $this->analyze("<?php\n\necho \$undefined;");
+        self::assertNotSame([], $withError['result']);
+
+        $clean = $this->analyze("<?php\n\necho 'ok';");
+        self::assertSame([], $clean['result']);
+    }
+
     public function testWarmInvocationsAreConsistent(): void
     {
         $code = <<<'PHP'

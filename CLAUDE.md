@@ -24,6 +24,11 @@ new PHPStan majors.
 Push to `main` deploys. Each component has its own path-filtered workflow in
 `.github/workflows/`, and each runs that component's tests before deploying.
 There is no staging environment — a green push goes straight to production.
+The `update-runner-deps` workflow runs `composer update` monthly, tests,
+commits the lock, and dispatches the runner deploy, so the playground tracks
+phpstan-drupal releases without manual pushes. Dependabot covers npm and
+GitHub Actions monthly (grouped); runner composer deps are deliberately
+excluded from Dependabot.
 The serverless CLI is `osls` (OSS Serverless v3 fork), not `serverless`;
 Serverless v3 is EOL and v4 requires a license.
 
