@@ -1,0 +1,66 @@
+{
+  "tabs": [
+    {
+      "errors": [
+        {
+          "line": 3,
+          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\Drupal\\Core\\Entity\\Query\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
+          "ignorable": true,
+          "tip": "See https://www.drupal.org/node/3201242",
+          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
+        },
+        {
+          "line": 8,
+          "message": "Cannot call method label() on Drupal\\node\\Entity\\Node|null.",
+          "ignorable": true,
+          "identifier": "method.nonObject"
+        }
+      ],
+      "title": "PHP 8.3 – 8.4 (2 errors)"
+    }
+  ],
+  "versionedErrors": [
+    {
+      "phpVersion": 80300,
+      "errors": [
+        {
+          "line": 3,
+          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\Drupal\\Core\\Entity\\Query\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
+          "ignorable": true,
+          "tip": "See https://www.drupal.org/node/3201242",
+          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
+        },
+        {
+          "line": 8,
+          "message": "Cannot call method label() on Drupal\\node\\Entity\\Node|null.",
+          "ignorable": true,
+          "identifier": "method.nonObject"
+        }
+      ]
+    },
+    {
+      "phpVersion": 80400,
+      "errors": [
+        {
+          "line": 3,
+          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\Drupal\\Core\\Entity\\Query\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
+          "ignorable": true,
+          "tip": "See https://www.drupal.org/node/3201242",
+          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
+        },
+        {
+          "line": 8,
+          "message": "Cannot call method label() on Drupal\\node\\Entity\\Node|null.",
+          "ignorable": true,
+          "identifier": "method.nonObject"
+        }
+      ]
+    }
+  ],
+  "versions": {
+    "phpstan": "2.2.7",
+    "phpstan-drupal": "2.1.1",
+    "drupal": "11.4.4"
+  },
+  "id": "e407746d-6f3c-4da3-b468-95f5cfb94d6e"
+}

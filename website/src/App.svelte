@@ -1,6 +1,8 @@
 <script>
     import {onMount} from "svelte";
     import Editor from "./Editor/Editor.svelte";
+    import {apiUrl, sampleCode} from "./sample.js";
+    import sampleResult from "./sample-result.json";
 
     onMount(() => {
         const resultMatch = window.location.pathname.match(/^\/r\/([0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12})$/i);
@@ -9,82 +11,15 @@
         }
     })
 
-    const apiUrl = 'https://gkyhj54sul.execute-api.us-east-1.amazonaws.com/prod';
     const data = {
-        code: `<?php\n\n$nids = \\Drupal::entityQuery('node')\n  ->condition('status', 1)\n  ->execute();\n\n$node = \\Drupal::entityTypeManager()->getStorage('node')->load(1);\necho $node->label();`,
+        code: sampleCode,
         level: '9',
         strictRules: false,
         bleedingEdge: false,
         treatPhpDocTypesAsCertain: true
     };
     let processing = false;
-    let result = JSON.parse(`{
-  "tabs": [
-    {
-      "errors": [
-        {
-          "line": 3,
-          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\\\Drupal\\\\Core\\\\Entity\\\\Query\\\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
-          "ignorable": true,
-          "tip": "See https://www.drupal.org/node/3201242",
-          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
-        },
-        {
-          "line": 8,
-          "message": "Cannot call method label() on Drupal\\\\node\\\\Entity\\\\Node|null.",
-          "ignorable": true,
-          "identifier": "method.nonObject"
-        }
-      ],
-      "title": "PHP 8.3 – 8.4 (2 errors)"
-    }
-  ],
-  "versionedErrors": [
-    {
-      "phpVersion": 80300,
-      "errors": [
-        {
-          "line": 3,
-          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\\\Drupal\\\\Core\\\\Entity\\\\Query\\\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
-          "ignorable": true,
-          "tip": "See https://www.drupal.org/node/3201242",
-          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
-        },
-        {
-          "line": 8,
-          "message": "Cannot call method label() on Drupal\\\\node\\\\Entity\\\\Node|null.",
-          "ignorable": true,
-          "identifier": "method.nonObject"
-        }
-      ]
-    },
-    {
-      "phpVersion": 80400,
-      "errors": [
-        {
-          "line": 3,
-          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\\\Drupal\\\\Core\\\\Entity\\\\Query\\\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
-          "ignorable": true,
-          "tip": "See https://www.drupal.org/node/3201242",
-          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
-        },
-        {
-          "line": 8,
-          "message": "Cannot call method label() on Drupal\\\\node\\\\Entity\\\\Node|null.",
-          "ignorable": true,
-          "identifier": "method.nonObject"
-        }
-      ]
-    }
-  ],
-  "versions": {
-    "phpstan": "2.2.7",
-    "phpstan-drupal": "2.1.1",
-    "drupal": "11.4.4"
-  },
-  "id": "324367c6-7a95-431a-9674-12235b21dfa7"
-}
-`);
+    let result = sampleResult;
     async function fetchResult(id) {
         result = null;
         processing = true;
