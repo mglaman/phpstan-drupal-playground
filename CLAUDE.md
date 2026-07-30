@@ -14,9 +14,10 @@ new PHPStan majors.
   (REST, prod stage). `handler.ts` is a thin entry; logic lives in `src/`.
   `analyseResult` fans out one runner invocation per PHP version and saves
   shareable results to S3 bucket `phpstan-drupal-playground`.
-* `website/` — Svelte 3 + Vite 3 SPA, deployed to S3 `phpstan-drupal-web`
-  behind CloudFront `EJLWUQZMNXH6E`. The API URL is hardcoded in
-  `src/App.svelte`.
+* `website/` — Svelte 5 + Vite 8 SPA, deployed to S3 `phpstan-drupal-web`
+  behind CloudFront `EJLWUQZMNXH6E`. The API URL and default sample live in
+  `src/sample.js`; the build captures the preloaded result from the live API
+  (`scripts/capture-sample.mjs`).
 
 ## Deploys
 
@@ -55,10 +56,10 @@ changes are caught before an unreviewed production deploy.
   aws-sdk-client-mock's types clash with current @smithy versions, and the
   exclusion also keeps tests out of the deploy artifact. Vitest compiles
   tests itself.
-* `website/vitest.config.js` is standalone because the Svelte plugin in
-  `vite.config.js` is pinned to Vite 3 and breaks under Vitest's bundled
-  Vite. Component (.svelte) files are not covered by tests — only plain
-  modules.
+* `website/vitest.config.js` needs `resolve.conditions: ['browser']` —
+  without it tests load Svelte's server build and `mount()` throws.
+  Component tests run in jsdom via a per-file `@vitest-environment jsdom`
+  comment and must `cleanup()` between tests.
 * The website deploy sets `no-cache` on index.html and immutable caching on
   hashed assets. Keep that split when touching the deploy workflow, or
   browsers hold stale bundles until a hard refresh.
