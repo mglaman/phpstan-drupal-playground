@@ -106,7 +106,7 @@
             </div>
             <p class="my-4">Try out PHPStan with phpstan-drupal and all of its features here in the editor. <a href="https://phpstan.org/" class="hover:no-underline underline">Learn more about PHPStan »</a></p>
             <form class="space-y-4" on:submit={analyse}>
-                <Editor code={data.code} errors={result?.tabs?.[0]?.errors ?? []} />
+                <Editor bind:code={data.code} errors={result?.tabs?.[0]?.errors ?? []} />
                 <details class="border border-gray-300 rounded-md p-2">
                     <summary class="text-sm">Advanced options</summary>
                     <div class="flex flex-col items-center md:flex-row mt-4 space-x-6">

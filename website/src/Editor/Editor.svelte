@@ -7,20 +7,26 @@
     export let code = '';
     export let errors = []
 
-    $: {
-        if (editor) {
-            editor.dispatch({
-                changes: {
-                    from: 0,
-                    to: editor.state.doc.length,
-                    insert: code
-                },
-                effects: [
-                    errorsCompartment.reconfigure(errorsFacet.of(errors)),
-                    updateErrorsEffect.of(true),
-                ],
-            })
-        }
+    // Guard against the editor's own change callback: without it, every
+    // keystroke echoes back through the code prop and replaces the whole
+    // document mid-typing.
+    $: if (editor && code !== editor.state.doc.toString()) {
+        editor.dispatch({
+            changes: {
+                from: 0,
+                to: editor.state.doc.length,
+                insert: code
+            },
+        })
+    }
+
+    $: if (editor) {
+        editor.dispatch({
+            effects: [
+                errorsCompartment.reconfigure(errorsFacet.of(errors)),
+                updateErrorsEffect.of(true),
+            ],
+        })
     }
 
     onMount(() => {
