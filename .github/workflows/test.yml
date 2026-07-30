@@ -1,0 +1,59 @@
+name: "Test"
+on:
+  pull_request:
+
+jobs:
+  runner:
+    name: "Runner tests"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "Install PHP"
+        uses: "shivammathur/setup-php@v2"
+        with:
+          coverage: "none"
+          php-version: "8.4"
+      - name: "composer install"
+        working-directory: ./playground-runner
+        run: "composer install --no-interaction --no-progress"
+      - name: "Test"
+        working-directory: ./playground-runner
+        run: "composer test"
+
+  api:
+    name: "API tests"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "Install Node"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: "npm ci"
+        working-directory: ./playground-api
+        run: "npm ci"
+      - name: "Check"
+        working-directory: ./playground-api
+        run: "npm run check"
+      - name: "Test"
+        working-directory: ./playground-api
+        run: "npm test"
+
+  website:
+    name: "Website tests"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+      - name: "Install Node"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: "npm ci"
+        working-directory: ./website
+        run: "npm ci"
+      - name: "Test"
+        working-directory: ./website
+        run: "npm test"

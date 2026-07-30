@@ -6,7 +6,8 @@
 	"scripts": {
 		"deploy": "serverless deploy",
 		"check": "tsc -p tsconfig.json --noEmit && eslint -c .eslintrc.js --ext .ts",
-		"check-fix": "eslint -c .eslintrc.js --fix --ext .ts"
+		"check-fix": "eslint -c .eslintrc.js --fix --ext .ts",
+		"test": "vitest run"
 	},
 	"author": "",
 	"license": "MIT",
@@ -24,9 +25,11 @@
 		"@types/uuid": "^9.0.1",
 		"@typescript-eslint/eslint-plugin": "^6.7.5",
 		"@typescript-eslint/parser": "^6.7.5",
+		"aws-sdk-client-mock": "^4.1.0",
 		"eslint": "^8.51.0",
 		"osls": "^3.59.3",
 		"serverless-plugin-typescript": "^2.0.0",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.10"
 	}
 }

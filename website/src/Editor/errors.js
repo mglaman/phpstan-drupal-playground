@@ -10,7 +10,7 @@ export const errorsFacet = Facet.define({
 export const errorsCompartment = new Compartment();
 export const updateErrorsEffect = StateEffect.define();
 
-const buildErrorLines = (doc, errors) => {
+export const buildErrorLines = (doc, errors) => {
     const errorLineDecoration = Decoration.line({class: 'bg-red-200/50'});
     const tipLineDecoration = Decoration.line({class: 'bg-yellow-200/50'});
     const builder = new RangeSetBuilder();

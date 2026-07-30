@@ -67,7 +67,6 @@ return function(array $event) use ($phpstanVersion, $phpstanDrupalVersion, $drup
 
 		$configFiles[] = $file;
 	}
-	$finalConfigFile = $tmpDir . '/run-phpstan-tmp.neon';
 	$neon = Neon::encode([
 		'includes' => $configFiles,
 		'parameters' => [
@@ -81,6 +80,11 @@ return function(array $event) use ($phpstanVersion, $phpstanDrupalVersion, $drup
 			],
 		],
 	]);
+	// The compiled DI container class is keyed by the config file path, not
+	// its content. A constant filename makes warm invocations reuse the first
+	// container and silently ignore config changes (strictRules, phpVersion),
+	// so the path must vary with the content.
+	$finalConfigFile = $tmpDir . '/run-phpstan-' . md5($neon) . '.neon';
 	file_put_contents($finalConfigFile, $neon);
 
 	require_once 'phar://' . $rootDir . '/vendor/phpstan/phpstan/phpstan.phar/stubs/runtime/ReflectionUnionType.php';

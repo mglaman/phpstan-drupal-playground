@@ -30,6 +30,7 @@
     "scripts": {
         "post-autoload-dump": [
             "php scaffold.php"
-        ]
+        ],
+        "test": "phpunit"
     }
 }

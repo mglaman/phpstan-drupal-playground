@@ -31,6 +31,9 @@ jobs:
       - name: "composer install"
         working-directory: ./playground-runner
         run: "composer install --no-interaction --no-progress"
+      - name: "Test"
+        working-directory: ./playground-runner
+        run: "composer test"
       - name: "Deploy"
         working-directory: ./playground-runner
         env:

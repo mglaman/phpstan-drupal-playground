@@ -31,6 +31,10 @@ jobs:
         working-directory: ./playground-api
         run: "npm run check"
 
+      - name: "Test"
+        working-directory: ./playground-api
+        run: "npm test"
+
       - name: "Deploy"
         working-directory: ./playground-api
         env:
