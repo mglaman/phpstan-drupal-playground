@@ -16,7 +16,7 @@ const buildErrorLines = (doc, errors) => {
     const builder = new RangeSetBuilder();
     const errorLines = [];
     const tipLines = [];
-    for (const error of errors) {
+    for (const error of errors ?? []) {
         if (error.line < 1) {
             continue;
         }
