@@ -2,10 +2,11 @@ service: phpstan-drupal-playground-api
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs22.x
   architecture: arm64
   stage: prod
   region: us-east-1
+  timeout: 29
   iamRoleStatements:
     - Effect: "Allow"
       Action:
@@ -19,7 +20,6 @@ provider:
 
 plugins:
 - serverless-plugin-typescript
-- serverless-offline
 
 functions:
   analyseResult:

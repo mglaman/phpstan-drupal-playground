@@ -1,7 +1,5 @@
-import {AWSError, Lambda, S3} from 'aws-sdk';
-import {PromiseResult} from 'aws-sdk/lib/request';
-import middy from 'middy';
-import { cors } from 'middy/middlewares';
+import {InvokeCommandOutput, Lambda} from '@aws-sdk/client-lambda';
+import {S3} from '@aws-sdk/client-s3';
 import { v4 as uuid } from 'uuid';
 import * as Sentry from "@sentry/node";
 
@@ -21,6 +19,7 @@ interface HttpRequest {
 interface HttpResponse {
 	statusCode: number;
 	body?: string;
+	headers?: Record<string, string>;
 }
 
 interface PHPStanError {
@@ -31,8 +30,8 @@ interface PHPStanError {
 	ignorable?: boolean,
 }
 
-const lambda = new Lambda();
-const s3 = new S3();
+const lambda = new Lambda({});
+const s3 = new S3({});
 
 async function analyseResultInternal(
 	code: string,
@@ -42,7 +41,7 @@ async function analyseResultInternal(
 	treatPhpDocTypesAsCertain: boolean,
 	phpVersions: number[],
 ): Promise<any[]> {
-	const lambdaPromises: [Promise<PromiseResult<Lambda.InvocationResponse, AWSError>>, number][] = [];
+	const lambdaPromises: [Promise<InvokeCommandOutput>, number][] = [];
 	for (const phpVersion of phpVersions) {
 		lambdaPromises.push([lambda.invoke({
 			// arn:aws:lambda:us-east-1:994345088675:function:phpstan-drupal-runner-prod-analyze
@@ -55,7 +54,7 @@ async function analyseResultInternal(
 				treatPhpDocTypesAsCertain: treatPhpDocTypesAsCertain,
 				phpVersion: phpVersion,
 			}),
-		}).promise(), phpVersion]);
+		}), phpVersion]);
 	}
 
 	const versionedErrors: any[] = [];
@@ -64,7 +63,7 @@ async function analyseResultInternal(
 		const phpVersion = tuple[1];
 		const lambdaResult = await promise;
 
-		const jsonResponse = JSON.parse(lambdaResult.Payload as string);
+		const jsonResponse = JSON.parse(new TextDecoder().decode(lambdaResult.Payload));
 		versionedErrors.push({
 			phpVersion: phpVersion,
 			errors: jsonResponse.result.map((error: any): PHPStanError => {
@@ -213,7 +212,7 @@ async function analyseResult(request: HttpRequest): Promise<HttpResponse> {
 			runStrictRules,
 			runBleedingEdge,
 			treatPhpDocTypesAsCertain,
-			[80100, 80200, 80300],
+			[80300, 80400],
 		);
 		const response: any = {
 			tabs: createTabs(versionedErrors),
@@ -237,7 +236,7 @@ async function analyseResult(request: HttpRequest): Promise<HttpResponse> {
 						treatPhpDocTypesAsCertain: treatPhpDocTypesAsCertain,
 					},
 				}),
-			}).promise();
+			});
 
 			response.id = id;
 		}
@@ -259,27 +258,24 @@ async function retrieveResult(request: HttpRequest): Promise<HttpResponse> {
 		const object = await s3.getObject({
 			Bucket: 'phpstan-drupal-playground',
 			Key: 'api/results/' + id + '.json',
-		}).promise();
-		const json = JSON.parse(object.Body as string);
+		});
+		const json = JSON.parse(await object.Body!.transformToString());
 		const strictRules = typeof json.config.strictRules !== 'undefined' ? json.config.strictRules : false;
 		const bleedingEdge = typeof json.config.bleedingEdge !== 'undefined' ? json.config.bleedingEdge : false;
 		const treatPhpDocTypesAsCertain = typeof json.config.treatPhpDocTypesAsCertain !== 'undefined' ? json.config.treatPhpDocTypesAsCertain : true;
 
-		let phpVersionsToAnalyse: number[] = [70200, 70300, 70400, 80000];
+		let phpVersionsToAnalyse: number[] = [];
 		if (typeof json.versionedErrors !== 'undefined') {
 			phpVersionsToAnalyse = json.versionedErrors.map((errors: {phpVersion: number, errors: PHPStanError[]}) => {
 				return errors.phpVersion;
 			});
 		}
 
-		if (!phpVersionsToAnalyse.includes(80100)) {
-			phpVersionsToAnalyse.push(80100);
-		}
-		if (!phpVersionsToAnalyse.includes(80200)) {
-			phpVersionsToAnalyse.push(80200);
-		}
 		if (!phpVersionsToAnalyse.includes(80300)) {
 			phpVersionsToAnalyse.push(80300);
+		}
+		if (!phpVersionsToAnalyse.includes(80400)) {
+			phpVersionsToAnalyse.push(80400);
 		}
 
 		const newResult = await analyseResultInternal(
@@ -379,8 +375,8 @@ async function retrieveSample(request: HttpRequest): Promise<HttpResponse> {
 		const object = await s3.getObject({
 			Bucket: 'phpstan-drupal-playground',
 			Key: 'api/results/' + id + '.json',
-		}).promise();
-		const json = JSON.parse(object.Body as string);
+		});
+		const json = JSON.parse(await object.Body!.transformToString());
 		const strictRules = typeof json.config.strictRules !== 'undefined' ? json.config.strictRules : false;
 		const bleedingEdge = typeof json.config.bleedingEdge !== 'undefined' ? json.config.bleedingEdge : false;
 		const treatPhpDocTypesAsCertain = typeof json.config.treatPhpDocTypesAsCertain !== 'undefined' ? json.config.treatPhpDocTypesAsCertain : true;
@@ -420,12 +416,12 @@ async function retrieveLegacyResult(request: HttpRequest): Promise<HttpResponse>
 		const inputObject = await s3.getObject({
 			Bucket: 'phpstan-drupal-playground',
 			Key: path + '/input.json',
-		}).promise();
+		});
 		const outputObject = await s3.getObject({
 			Bucket: 'phpstan-drupal-playground',
 			Key: path + '/output.json',
-		}).promise();
-		const inputJson = JSON.parse(inputObject.Body as string);
+		});
+		const inputJson = JSON.parse(await inputObject.Body!.transformToString());
 		const AnsiToHtml = require('ansi-to-html');
 		const convert = new AnsiToHtml();
 		const result = await analyseResultInternal(
@@ -434,14 +430,14 @@ async function retrieveLegacyResult(request: HttpRequest): Promise<HttpResponse>
 			false,
 			false,
 			true,
-			[70200, 70300, 70400, 80000, 80100, 80200, 80300],
+			[80300, 80400],
 		);
 
 		return Promise.resolve({
 			statusCode: 200,
 			body: JSON.stringify({
 				code: inputJson.phpCode,
-				htmlErrors: convert.toHtml(JSON.parse(outputObject.Body as string).output),
+				htmlErrors: convert.toHtml(JSON.parse(await outputObject.Body!.transformToString()).output),
 				upToDateTabs: createTabs(result),
 				upToDateVersionedErrors: result,
 				version: inputJson.phpStanVersion,
@@ -460,11 +456,22 @@ async function retrieveLegacyResult(request: HttpRequest): Promise<HttpResponse>
 	}
 }
 
-const corsMiddleware = cors();
+const withCors = (handler: (request: HttpRequest) => Promise<HttpResponse>) => {
+	return async (request: HttpRequest): Promise<HttpResponse> => {
+		const response = await handler(request);
+		return {
+			...response,
+			headers: {
+				...response.headers,
+				'Access-Control-Allow-Origin': '*',
+			},
+		};
+	};
+};
 
 module.exports = {
-	analyseResult: middy(analyseResult).use(corsMiddleware),
-	retrieveResult: middy(retrieveResult).use(corsMiddleware),
-	retrieveSample: middy(retrieveSample).use(corsMiddleware),
-	retrieveLegacyResult: middy(retrieveLegacyResult).use(corsMiddleware),
+	analyseResult: withCors(analyseResult),
+	retrieveResult: withCors(retrieveResult),
+	retrieveSample: withCors(retrieveSample),
+	retrieveLegacyResult: withCors(retrieveLegacyResult),
 };
