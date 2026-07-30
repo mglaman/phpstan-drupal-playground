@@ -54,6 +54,7 @@ describe('retrieveResult', () => {
 		const body = JSON.parse(response.body!);
 		expect(body.tabs[0].title).toBe('PHP 8.1 (1 error)');
 		expect(body.versionedErrors).toEqual([{phpVersion: 80100, errors: [sampleError]}]);
+		expect(body.versions).toEqual({phpstan: '2.2.7', 'phpstan-drupal': '2.1.1', drupal: '11.4.4'});
 	});
 
 	it('collapses up-to-date tabs to the stored versions when results match', async () => {
@@ -154,6 +155,7 @@ describe('retrieveLegacyResult', () => {
 		expect(body.htmlErrors).toContain('Found 1 error');
 		expect(body.htmlErrors).toContain('<span');
 		expect(body.upToDateTabs[0].title).toBe('PHP 8.3 – 8.4 (1 error)');
+		expect(body.versions).toEqual({phpstan: '2.2.7', 'phpstan-drupal': '2.1.1', drupal: '11.4.4'});
 
 		const payloads = lambdaMock.commandCalls(InvokeCommand)
 			.map((call) => JSON.parse(call.args[0].input.Payload as string));

@@ -11,7 +11,7 @@
 
     const apiUrl = 'https://gkyhj54sul.execute-api.us-east-1.amazonaws.com/prod';
     const data = {
-        code: `<?php\n\nmodule_load_include('inc', 'foo', 'node.admin');\n\n\\Drupal::moduleHandler()->loadInclude('node', 'inc', 'node.admin');`,
+        code: `<?php\n\n$nids = \\Drupal::entityQuery('node')\n  ->condition('status', 1)\n  ->execute();\n\n$node = \\Drupal::entityTypeManager()->getStorage('node')->load(1);\necho $node->label();`,
         level: '9',
         strictRules: false,
         bleedingEdge: false,
@@ -24,66 +24,65 @@
       "errors": [
         {
           "line": 3,
-          "message": "Call to deprecated function module_load_include():\\nin drupal:9.4.0 and is removed from drupal:11.0.0.\\n  Use \\\\Drupal::moduleHandler()->loadInclude($module, $type, $name = NULL).\\n  Note that including code from uninstalled extensions is no longer\\n  supported.",
-          "ignorable": true
+          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\\\Drupal\\\\Core\\\\Entity\\\\Query\\\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
+          "ignorable": true,
+          "tip": "See https://www.drupal.org/node/3201242",
+          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
         },
         {
-          "line": 3,
-          "message": "File node.admin.inc could not be loaded from module_load_include because foo module is not found.",
-          "ignorable": true
+          "line": 8,
+          "message": "Cannot call method label() on Drupal\\\\node\\\\Entity\\\\Node|null.",
+          "ignorable": true,
+          "identifier": "method.nonObject"
         }
       ],
-      "title": "PHP 8.1 – 8.3 (2 errors)"
+      "title": "PHP 8.3 – 8.4 (2 errors)"
     }
   ],
   "versionedErrors": [
-    {
-      "phpVersion": 80100,
-      "errors": [
-        {
-          "line": 3,
-          "message": "Call to deprecated function module_load_include():\\nin drupal:9.4.0 and is removed from drupal:11.0.0.\\n  Use \\\\Drupal::moduleHandler()->loadInclude($module, $type, $name = NULL).\\n  Note that including code from uninstalled extensions is no longer\\n  supported.",
-          "ignorable": true
-        },
-        {
-          "line": 3,
-          "message": "File node.admin.inc could not be loaded from module_load_include because foo module is not found.",
-          "ignorable": true
-        }
-      ]
-    },
-    {
-      "phpVersion": 80200,
-      "errors": [
-        {
-          "line": 3,
-          "message": "Call to deprecated function module_load_include():\\nin drupal:9.4.0 and is removed from drupal:11.0.0.\\n  Use \\\\Drupal::moduleHandler()->loadInclude($module, $type, $name = NULL).\\n  Note that including code from uninstalled extensions is no longer\\n  supported.",
-          "ignorable": true
-        },
-        {
-          "line": 3,
-          "message": "File node.admin.inc could not be loaded from module_load_include because foo module is not found.",
-          "ignorable": true
-        }
-      ]
-    },
     {
       "phpVersion": 80300,
       "errors": [
         {
           "line": 3,
-          "message": "Call to deprecated function module_load_include():\\nin drupal:9.4.0 and is removed from drupal:11.0.0.\\n  Use \\\\Drupal::moduleHandler()->loadInclude($module, $type, $name = NULL).\\n  Note that including code from uninstalled extensions is no longer\\n  supported.",
-          "ignorable": true
+          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\\\Drupal\\\\Core\\\\Entity\\\\Query\\\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
+          "ignorable": true,
+          "tip": "See https://www.drupal.org/node/3201242",
+          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
         },
         {
+          "line": 8,
+          "message": "Cannot call method label() on Drupal\\\\node\\\\Entity\\\\Node|null.",
+          "ignorable": true,
+          "identifier": "method.nonObject"
+        }
+      ]
+    },
+    {
+      "phpVersion": 80400,
+      "errors": [
+        {
           "line": 3,
-          "message": "File node.admin.inc could not be loaded from module_load_include because foo module is not found.",
-          "ignorable": true
+          "message": "Relying on entity queries to check access by default is deprecated in drupal:9.2.0 and an error will be thrown from drupal:10.0.0. Call \\\\Drupal\\\\Core\\\\Entity\\\\Query\\\\QueryInterface::accessCheck() with TRUE or FALSE to specify whether access should be checked.",
+          "ignorable": true,
+          "tip": "See https://www.drupal.org/node/3201242",
+          "identifier": "entityQueryHasAccessCheck.noAccessCheck"
+        },
+        {
+          "line": 8,
+          "message": "Cannot call method label() on Drupal\\\\node\\\\Entity\\\\Node|null.",
+          "ignorable": true,
+          "identifier": "method.nonObject"
         }
       ]
     }
   ],
-  "id": "d22c810f-dd6c-4769-aa4d-41c3be5792f4"
+  "versions": {
+    "phpstan": "2.2.7",
+    "phpstan-drupal": "2.1.1",
+    "drupal": "11.4.4"
+  },
+  "id": "324367c6-7a95-431a-9674-12235b21dfa7"
 }
 `);
     async function fetchResult(id) {
@@ -259,6 +258,13 @@
                         </table>
                     {/if}
                 {/each}
+                {#if result?.versions}
+                    <p class="mt-6 text-sm text-gray-500">
+                        PHPStan {result.versions.phpstan}
+                        · <a href="https://github.com/mglaman/phpstan-drupal" class="underline hover:no-underline">phpstan-drupal</a> {result.versions['phpstan-drupal']}
+                        · Drupal {result.versions.drupal}
+                    </p>
+                {/if}
             </div>
         </div>
     </main>

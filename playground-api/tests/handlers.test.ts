@@ -30,12 +30,13 @@ describe('analyseResultInternal', () => {
 	it('invokes the runner once per PHP version', async () => {
 		lambdaMock.on(InvokeCommand).resolves(runnerResponse([sampleError]));
 
-		const versionedErrors = await analyseResultInternal('<?php', '9', false, false, true, [80300, 80400]);
+		const {versionedErrors, versions} = await analyseResultInternal('<?php', '9', false, false, true, [80300, 80400]);
 
 		expect(versionedErrors).toEqual([
 			{phpVersion: 80300, errors: [sampleError]},
 			{phpVersion: 80400, errors: [sampleError]},
 		]);
+		expect(versions).toEqual({phpstan: '2.2.7', 'phpstan-drupal': '2.1.1', drupal: '11.4.4'});
 
 		const calls = lambdaMock.commandCalls(InvokeCommand);
 		expect(calls).toHaveLength(2);
@@ -60,11 +61,14 @@ describe('analyseResult', () => {
 		const body = JSON.parse(response.body!);
 		expect(body.tabs).toHaveLength(1);
 		expect(body.tabs[0].title).toBe('PHP 8.3 – 8.4 (1 error)');
+		expect(body.versions).toEqual({phpstan: '2.2.7', 'phpstan-drupal': '2.1.1', drupal: '11.4.4'});
 		expect(body.id).toMatch(/^[0-9a-f-]{36}$/);
 
 		const putCalls = s3Mock.commandCalls(PutObjectCommand);
 		expect(putCalls).toHaveLength(1);
 		expect(putCalls[0].args[0].input.Key).toBe('api/results/' + body.id + '.json');
+		expect(JSON.parse(putCalls[0].args[0].input.Body as string).versions)
+			.toEqual({phpstan: '2.2.7', 'phpstan-drupal': '2.1.1', drupal: '11.4.4'});
 	});
 
 	it('skips saving when saveResult is false', async () => {

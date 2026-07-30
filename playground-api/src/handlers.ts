@@ -17,6 +17,17 @@ export interface HttpRequest {
 	queryStringParameters: any;
 }
 
+export interface RunnerVersions {
+	phpstan: string;
+	'phpstan-drupal': string;
+	drupal: string;
+}
+
+export interface AnalysisResult {
+	versionedErrors: VersionedErrors[];
+	versions?: RunnerVersions;
+}
+
 export interface HttpResponse {
 	statusCode: number;
 	body?: string;
@@ -33,7 +44,7 @@ export async function analyseResultInternal(
 	runBleedingEdge: boolean,
 	treatPhpDocTypesAsCertain: boolean,
 	phpVersions: number[],
-): Promise<VersionedErrors[]> {
+): Promise<AnalysisResult> {
 	const lambdaPromises: [Promise<InvokeCommandOutput>, number][] = [];
 	for (const phpVersion of phpVersions) {
 		lambdaPromises.push([lambda.invoke({
@@ -51,12 +62,14 @@ export async function analyseResultInternal(
 	}
 
 	const versionedErrors: VersionedErrors[] = [];
+	let versions: RunnerVersions | undefined;
 	for (const tuple of lambdaPromises) {
 		const promise = tuple[0];
 		const phpVersion = tuple[1];
 		const lambdaResult = await promise;
 
 		const jsonResponse = JSON.parse(new TextDecoder().decode(lambdaResult.Payload));
+		versions = jsonResponse.versions ?? versions;
 		versionedErrors.push({
 			phpVersion: phpVersion,
 			errors: jsonResponse.result.map((error: any): PHPStanError => {
@@ -78,7 +91,7 @@ export async function analyseResultInternal(
 		});
 	}
 
-	return versionedErrors;
+	return {versionedErrors, versions};
 }
 
 export async function analyseResult(request: HttpRequest): Promise<HttpResponse> {
@@ -89,7 +102,7 @@ export async function analyseResult(request: HttpRequest): Promise<HttpResponse>
 		const treatPhpDocTypesAsCertain = typeof json.treatPhpDocTypesAsCertain !== 'undefined' ? json.treatPhpDocTypesAsCertain : true;
 		const saveResult: boolean = typeof json.saveResult !== 'undefined' ? json.saveResult : true;
 
-		const versionedErrors = await analyseResultInternal(
+		const {versionedErrors, versions} = await analyseResultInternal(
 			json.code,
 			json.level,
 			runStrictRules,
@@ -100,6 +113,7 @@ export async function analyseResult(request: HttpRequest): Promise<HttpResponse>
 		const response: any = {
 			tabs: createTabs(versionedErrors),
 			versionedErrors,
+			versions,
 		};
 
 		if (saveResult) {
@@ -111,6 +125,7 @@ export async function analyseResult(request: HttpRequest): Promise<HttpResponse>
 				Body: JSON.stringify({
 					code: json.code,
 					versionedErrors: versionedErrors,
+					versions: versions,
 					version: 'N/A',
 					level: json.level,
 					config: {
@@ -161,7 +176,7 @@ export async function retrieveResult(request: HttpRequest): Promise<HttpResponse
 			phpVersionsToAnalyse.push(80400);
 		}
 
-		const newResult = await analyseResultInternal(
+		const {versionedErrors: newResult, versions} = await analyseResultInternal(
 			json.code,
 			json.level,
 			strictRules,
@@ -183,6 +198,7 @@ export async function retrieveResult(request: HttpRequest): Promise<HttpResponse
 			},
 			upToDateTabs: newTabs,
 			upToDateVersionedErrors: newResult,
+			versions,
 		};
 
 		if (typeof json.versionedErrors !== 'undefined') {
@@ -268,6 +284,7 @@ export async function retrieveSample(request: HttpRequest): Promise<HttpResponse
 			code: json.code,
 			errors: json.errors,
 			version: json.version,
+			versions: json.versions,
 			level: json.level,
 			config: {
 				strictRules,
@@ -307,7 +324,7 @@ export async function retrieveLegacyResult(request: HttpRequest): Promise<HttpRe
 		const inputJson = JSON.parse(await inputObject.Body!.transformToString());
 		const AnsiToHtml = require('ansi-to-html');
 		const convert = new AnsiToHtml();
-		const result = await analyseResultInternal(
+		const {versionedErrors: result, versions} = await analyseResultInternal(
 			inputJson.phpCode,
 			inputJson.level.toString(),
 			false,
@@ -323,6 +340,7 @@ export async function retrieveLegacyResult(request: HttpRequest): Promise<HttpRe
 				htmlErrors: convert.toHtml(JSON.parse(await outputObject.Body!.transformToString()).output),
 				upToDateTabs: createTabs(result),
 				upToDateVersionedErrors: result,
+				versions,
 				version: inputJson.phpStanVersion,
 				level: inputJson.level.toString(),
 				config: {
