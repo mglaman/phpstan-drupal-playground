@@ -1,7 +1,7 @@
 import {beforeEach, describe, expect, it} from 'vitest';
 import {mockClient} from 'aws-sdk-client-mock';
 import {InvokeCommand, LambdaClient} from '@aws-sdk/client-lambda';
-import {GetObjectCommand, S3Client} from '@aws-sdk/client-s3';
+import {GetObjectCommand, NoSuchKey, S3Client} from '@aws-sdk/client-s3';
 import {retrieveLegacyResult, retrieveResult} from '../src/handlers';
 
 const lambdaMock = mockClient(LambdaClient);
@@ -118,8 +118,41 @@ describe('retrieveResult', () => {
 		expect(body.tabs).toBeUndefined();
 	});
 
-	it('returns 500 when the result does not exist', async () => {
-		s3Mock.on(GetObjectCommand).rejects(new Error('NoSuchKey'));
+	it('includes the share link so callers do not have to build it', async () => {
+		s3Mock.on(GetObjectCommand).resolves(s3Object({
+			code: '<?php',
+			level: '9',
+			version: 'N/A',
+			config: {},
+			versionedErrors: [{phpVersion: 80300, errors: []}],
+		}));
+		lambdaMock.on(InvokeCommand).resolves(runnerResponse([]));
+
+		const response = await retrieveResult({body: '', queryStringParameters: {id: 'abc'}});
+
+		const body = JSON.parse(response.body!);
+		expect(body.id).toBe('abc');
+		expect(body.url).toBe('https://phpstan-drupal.mglaman.dev/r/abc');
+	});
+
+	it('returns 404 when the result does not exist', async () => {
+		s3Mock.on(GetObjectCommand).rejects(new NoSuchKey({message: 'The specified key does not exist.', $metadata: {}}));
+
+		const response = await retrieveResult({body: '', queryStringParameters: {id: 'missing'}});
+
+		expect(response.statusCode).toBe(404);
+		expect(JSON.parse(response.body!)).toEqual({error: 'No result with id "missing".'});
+	});
+
+	it('returns 400 without an id', async () => {
+		const response = await retrieveResult({body: '', queryStringParameters: null});
+
+		expect(response.statusCode).toBe(400);
+		expect(JSON.parse(response.body!)).toEqual({error: 'Missing id query parameter.'});
+	});
+
+	it('returns 500 on unexpected storage failures', async () => {
+		s3Mock.on(GetObjectCommand).rejects(new Error('boom'));
 
 		const response = await retrieveResult({body: '', queryStringParameters: {id: 'missing'}});
 
@@ -163,11 +196,11 @@ describe('retrieveLegacyResult', () => {
 		expect(payloads[0].level).toBe('7');
 	});
 
-	it('returns 500 when the legacy result does not exist', async () => {
-		s3Mock.on(GetObjectCommand).rejects(new Error('NoSuchKey'));
+	it('returns 404 when the legacy result does not exist', async () => {
+		s3Mock.on(GetObjectCommand).rejects(new NoSuchKey({message: 'The specified key does not exist.', $metadata: {}}));
 
 		const response = await retrieveLegacyResult({body: '', queryStringParameters: {id: 'missing'}});
 
-		expect(response.statusCode).toBe(500);
+		expect(response.statusCode).toBe(404);
 	});
 });

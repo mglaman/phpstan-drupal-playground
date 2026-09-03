@@ -1,7 +1,7 @@
 import {beforeEach, describe, expect, it} from 'vitest';
 import {mockClient} from 'aws-sdk-client-mock';
 import {InvokeCommand, LambdaClient} from '@aws-sdk/client-lambda';
-import {GetObjectCommand, PutObjectCommand, S3Client} from '@aws-sdk/client-s3';
+import {GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client} from '@aws-sdk/client-s3';
 import {analyseResult, analyseResultInternal, retrieveSample, withCors} from '../src/handlers';
 
 const lambdaMock = mockClient(LambdaClient);
@@ -63,6 +63,7 @@ describe('analyseResult', () => {
 		expect(body.tabs[0].title).toBe('PHP 8.3 – 8.4 (1 error)');
 		expect(body.versions).toEqual({phpstan: '2.2.7', 'phpstan-drupal': '2.1.1', drupal: '11.4.4'});
 		expect(body.id).toMatch(/^[0-9a-f-]{36}$/);
+		expect(body.url).toBe('https://phpstan-drupal.mglaman.dev/r/' + body.id);
 
 		const putCalls = s3Mock.commandCalls(PutObjectCommand);
 		expect(putCalls).toHaveLength(1);
@@ -81,13 +82,36 @@ describe('analyseResult', () => {
 
 		expect(response.statusCode).toBe(200);
 		expect(JSON.parse(response.body!).id).toBeUndefined();
+		expect(JSON.parse(response.body!).url).toBeUndefined();
 		expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
 	});
 
-	it('returns 500 on malformed request bodies', async () => {
+	it('returns 400 on malformed request bodies', async () => {
 		const response = await analyseResult({body: 'not json', queryStringParameters: {}});
 
-		expect(response.statusCode).toBe(500);
+		expect(response.statusCode).toBe(400);
+		expect(JSON.parse(response.body!)).toEqual({error: 'Request body must be JSON.'});
+	});
+
+	it('returns 400 when code is missing', async () => {
+		const response = await analyseResult({body: JSON.stringify({level: '9'}), queryStringParameters: {}});
+
+		expect(response.statusCode).toBe(400);
+		expect(JSON.parse(response.body!)).toEqual({error: 'Request body must include a "code" string.'});
+	});
+
+	it('defaults the level to 9', async () => {
+		lambdaMock.on(InvokeCommand).resolves(runnerResponse([]));
+
+		const response = await analyseResult({
+			body: JSON.stringify({code: '<?php', saveResult: false}),
+			queryStringParameters: {},
+		});
+
+		expect(response.statusCode).toBe(200);
+		const payloads = lambdaMock.commandCalls(InvokeCommand)
+			.map((call) => JSON.parse(call.args[0].input.Payload as string));
+		expect(payloads[0].level).toBe('9');
 	});
 });
 
@@ -119,12 +143,12 @@ describe('retrieveSample', () => {
 		expect(getCalls[0].args[0].input.Key).toBe('api/results/abc.json');
 	});
 
-	it('returns 500 when the result does not exist', async () => {
-		s3Mock.on(GetObjectCommand).rejects(new Error('NoSuchKey'));
+	it('returns 404 when the result does not exist', async () => {
+		s3Mock.on(GetObjectCommand).rejects(new NoSuchKey({message: 'The specified key does not exist.', $metadata: {}}));
 
 		const response = await retrieveSample({body: '', queryStringParameters: {id: 'missing'}});
 
-		expect(response.statusCode).toBe(500);
+		expect(response.statusCode).toBe(404);
 	});
 });
 
