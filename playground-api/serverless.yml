@@ -17,6 +17,13 @@ provider:
         - s3:PutObject
         - s3:GetObject
       Resource: "arn:aws:s3:::phpstan-drupal-playground/*"
+    # Without ListBucket, S3 answers a missing key with 403 AccessDenied
+    # instead of 404 NoSuchKey, and the handlers cannot tell a dead share
+    # link from a real permission problem.
+    - Effect: Allow
+      Action:
+        - s3:ListBucket
+      Resource: "arn:aws:s3:::phpstan-drupal-playground"
 
 plugins:
 - serverless-plugin-typescript
