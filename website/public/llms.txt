@@ -1,0 +1,104 @@
+# PHPStan Drupal Extension Playground
+
+> Run PHPStan with the phpstan-drupal extension against a snippet of PHP, get
+> the errors back as JSON or Markdown, and share the result with a stable link.
+> Built for reproducing phpstan-drupal bugs: https://github.com/mglaman/phpstan-drupal
+
+The website at https://phpstan-drupal.mglaman.dev/ is a JavaScript app. Do not
+scrape it. Use the HTTP API below. No authentication, no API key.
+
+API base URL: https://gkyhj54sul.execute-api.us-east-1.amazonaws.com/prod
+
+Every request runs the submitted code through PHPStan on PHP 8.3 and PHP 8.4
+against the current phpstan-drupal release with a real drupal/core install.
+Expect a few seconds per request. Results are stored forever and are public.
+
+## Analyse code and get a share link
+
+POST {base}/analyse
+Content-Type: application/json
+
+    {
+      "code": "<?php\n\n$node = \\Drupal::entityTypeManager()->getStorage('node')->load(1);\necho $node->label();",
+      "level": "9",
+      "strictRules": false,
+      "bleedingEdge": false,
+      "treatPhpDocTypesAsCertain": true,
+      "saveResult": true
+    }
+
+Fields:
+
+- code (string, required): a complete PHP file starting with `<?php`. Classes,
+  interfaces, and functions defined in the snippet are visible to the analysis.
+  Drupal core classes and services are available. Contrib modules are not.
+- level (string, default "9"): PHPStan rule level, "0" through "9".
+- strictRules, bleedingEdge (boolean, default false): enable phpstan-strict-rules
+  and PHPStan bleeding edge.
+- treatPhpDocTypesAsCertain (boolean, default true).
+- saveResult (boolean, default true): store the result and return a share link.
+  Set false for throwaway runs.
+
+Response (200, application/json):
+
+    {
+      "id": "e8500ee1-9159-4fea-a49b-27a46112101d",
+      "url": "https://phpstan-drupal.mglaman.dev/r/e8500ee1-9159-4fea-a49b-27a46112101d",
+      "versions": {"phpstan": "2.2.12", "phpstan-drupal": "2.1.2", "drupal": "11.4.5"},
+      "tabs": [
+        {"title": "PHP 8.3 – 8.4 (1 error)", "errors": [
+          {"line": 5, "message": "...", "identifier": "method.nonObject", "tip": "...", "ignorable": true}
+        ]}
+      ],
+      "versionedErrors": [{"phpVersion": 80300, "errors": [...]}, {"phpVersion": 80400, "errors": [...]}]
+    }
+
+- url is the link to paste into a bug report or issue. It is only present when
+  saveResult is true.
+- tabs groups PHP versions that produced identical errors. versionedErrors has
+  the raw per-version list. Line numbers are 1-based and refer to the submitted
+  code.
+- A 400 response carries {"error": "..."} and means the request was malformed.
+
+Example with curl:
+
+    curl -s -X POST "{base}/analyse" \
+      -H 'Content-Type: application/json' \
+      -d '{"code":"<?php\n\necho \\Drupal::VERSION;","level":"9"}'
+
+## Read a shared result
+
+A share link looks like https://phpstan-drupal.mglaman.dev/r/<uuid>. Take the
+uuid from the path and fetch one of:
+
+- GET {base}/result?id=<uuid>&format=markdown
+  Markdown with the analysis options, the full code, the current errors with
+  the offending line quoted under each one, and the errors that were saved
+  when the link was shared if they differ. Prefer this when you want to
+  understand or fix a reported bug.
+- GET {base}/result?id=<uuid>
+  JSON. `code`, `level`, and `config` are what was submitted. `tabs` and
+  `versionedErrors` are the errors saved with the link. `upToDateTabs` and
+  `upToDateVersionedErrors` come from re-running the code against the current
+  runner, with `versions` naming the releases used. When the saved errors and
+  the current ones differ, the bug was probably fixed or changed since the
+  link was created.
+
+Both re-run the analysis, so allow a few seconds. A missing id answers 404.
+
+## Reporting a phpstan-drupal bug
+
+1. Reduce the code to the smallest complete PHP file that shows the problem.
+2. POST it to {base}/analyse with saveResult true and the same options the
+   reporter used.
+3. Confirm the response contains the unexpected error or, for a false negative,
+   confirm the expected error is missing.
+4. Put the returned url in the issue at https://github.com/mglaman/phpstan-drupal/issues
+   along with the error message and what you expected instead.
+
+## Notes
+
+- Results use the runner's current phpstan-drupal release, which updates
+  monthly. To check an old share link against the latest release, fetch it
+  again and compare the saved errors with the current ones.
+- Source for the playground: https://github.com/mglaman/phpstan-drupal-playground

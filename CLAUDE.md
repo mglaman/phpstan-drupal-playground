@@ -68,6 +68,9 @@ changes are caught before an unreviewed production deploy.
 * The website deploy sets `no-cache` on index.html and immutable caching on
   hashed assets. Keep that split when touching the deploy workflow, or
   browsers hold stale bundles until a hard refresh.
+* `website/public/llms.txt` is the public API description for agents. Update
+  it whenever a request or response shape changes, and keep it excluded from
+  the immutable cache-control in the website deploy.
 * The S3 results bucket has two generations of saved results: current
   `api/results/<uuid>.json` and the legacy sharded
   `data/results/<2-char-prefix>/<id>/input.json` + `output.json` pair served

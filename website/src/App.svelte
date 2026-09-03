@@ -121,7 +121,7 @@
                     </svg>
                 </a>
             </div>
-            <p class="my-4">Try out PHPStan with phpstan-drupal and all of its features here in the editor. <a href="https://phpstan.org/" class="hover:no-underline underline">Learn more about PHPStan »</a></p>
+            <p class="my-4">Try out PHPStan with phpstan-drupal and all of its features here in the editor. <a href="https://phpstan.org/" class="hover:no-underline underline">Learn more about PHPStan »</a> Using an agent or a script? <a href="/llms.txt" class="hover:no-underline underline">Read the API notes</a>.</p>
             {#if loadingSharedResult}
                 <div class="flex flex-col items-center py-12 text-gray-500">
                     <div class="w-12 h-12" role="status">

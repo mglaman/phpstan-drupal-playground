@@ -5,9 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>phpstan-drupal</title>
+    <meta name="description" content="Run PHPStan with the phpstan-drupal extension against a PHP snippet and share the result." />
+    <!--
+      Agents and other non-browser clients: this page is a JavaScript app.
+      Shared results at /r/<uuid> are available as Markdown or JSON from the
+      API. See https://phpstan-drupal.mglaman.dev/llms.txt for the endpoints
+      and request format.
+    -->
 </head>
 <body class="bg-gradient-to-br from-drupal-navy-blue via-drupal-light-navy-blue to-drupal-pale-gray">
 <div id="app"></div>
+<noscript>
+    <p>This playground needs JavaScript. Shared results at /r/&lt;uuid&gt; are also available as Markdown or JSON through the API described at <a href="/llms.txt">/llms.txt</a>.</p>
+</noscript>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

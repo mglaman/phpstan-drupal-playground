@@ -3,6 +3,7 @@ import {S3} from '@aws-sdk/client-s3';
 import { v4 as uuid } from 'uuid';
 import * as Sentry from "@sentry/node";
 import {createTabs, PHPStanError, VersionedErrors} from './tabs';
+import {renderResultMarkdown} from './markdown';
 
 Sentry.init({
   dsn: "https://eb2a3a58974934df33e68af214e70607@o4505060230627328.ingest.sentry.io/4506276580818944",
@@ -36,6 +37,39 @@ export interface HttpResponse {
 
 const lambda = new Lambda({});
 const s3 = new S3({});
+
+const siteUrl = 'https://phpstan-drupal.mglaman.dev';
+
+export function shareUrl(id: string): string {
+	return `${siteUrl}/r/${id}`;
+}
+
+function jsonResponse(statusCode: number, body: unknown): HttpResponse {
+	return {
+		statusCode,
+		body: JSON.stringify(body),
+		headers: {'Content-Type': 'application/json'},
+	};
+}
+
+function errorResponse(statusCode: number, message: string): HttpResponse {
+	return jsonResponse(statusCode, {error: message});
+}
+
+function isMissingObject(e: unknown): boolean {
+	return e instanceof Error && e.name === 'NoSuchKey';
+}
+
+function failureResponse(e: unknown): HttpResponse {
+	console.error(e);
+	Sentry.captureException(e);
+	return {statusCode: 500};
+}
+
+function queryParameter(request: HttpRequest, name: string): string | undefined {
+	const value = request.queryStringParameters?.[name];
+	return typeof value === 'string' && value !== '' ? value : undefined;
+}
 
 export async function analyseResultInternal(
 	code: string,
@@ -95,8 +129,18 @@ export async function analyseResultInternal(
 }
 
 export async function analyseResult(request: HttpRequest): Promise<HttpResponse> {
+	let json: any;
 	try {
-		const json = JSON.parse(request.body);
+		json = JSON.parse(request.body);
+	} catch {
+		return errorResponse(400, 'Request body must be JSON.');
+	}
+	if (typeof json?.code !== 'string') {
+		return errorResponse(400, 'Request body must include a "code" string.');
+	}
+	const level = typeof json.level !== 'undefined' ? String(json.level) : '9';
+
+	try {
 		const runStrictRules = typeof json.strictRules !== 'undefined' ? json.strictRules : false;
 		const runBleedingEdge = typeof json.bleedingEdge !== 'undefined' ? json.bleedingEdge : false;
 		const treatPhpDocTypesAsCertain = typeof json.treatPhpDocTypesAsCertain !== 'undefined' ? json.treatPhpDocTypesAsCertain : true;
@@ -104,7 +148,7 @@ export async function analyseResult(request: HttpRequest): Promise<HttpResponse>
 
 		const {versionedErrors, versions} = await analyseResultInternal(
 			json.code,
-			json.level,
+			level,
 			runStrictRules,
 			runBleedingEdge,
 			treatPhpDocTypesAsCertain,
@@ -127,7 +171,7 @@ export async function analyseResult(request: HttpRequest): Promise<HttpResponse>
 					versionedErrors: versionedErrors,
 					versions: versions,
 					version: 'N/A',
-					level: json.level,
+					level,
 					config: {
 						strictRules: runStrictRules,
 						bleedingEdge: runBleedingEdge,
@@ -137,22 +181,23 @@ export async function analyseResult(request: HttpRequest): Promise<HttpResponse>
 			});
 
 			response.id = id;
+			response.url = shareUrl(id);
 		}
 
-		return Promise.resolve({
-			statusCode: 200,
-			body: JSON.stringify(response),
-		});
+		return jsonResponse(200, response);
 	} catch (e) {
-		console.error(e);
-		Sentry.captureException(e);
-		return Promise.resolve({statusCode: 500});
+		return failureResponse(e);
 	}
 }
 
 export async function retrieveResult(request: HttpRequest): Promise<HttpResponse> {
+	const id = queryParameter(request, 'id');
+	if (id === undefined) {
+		return errorResponse(400, 'Missing id query parameter.');
+	}
+	const format = queryParameter(request, 'format') ?? 'json';
+
 	try {
-		const id = request.queryStringParameters.id;
 		const object = await s3.getObject({
 			Bucket: 'phpstan-drupal-playground',
 			Key: 'api/results/' + id + '.json',
@@ -187,6 +232,8 @@ export async function retrieveResult(request: HttpRequest): Promise<HttpResponse
 		const newTabs = createTabs(newResult);
 
 		const bodyJson: any = {
+			id,
+			url: shareUrl(id),
 			code: json.code,
 			errors: json.errors,
 			version: json.version,
@@ -257,20 +304,30 @@ export async function retrieveResult(request: HttpRequest): Promise<HttpResponse
 				}
 			}
 		}
-		return Promise.resolve({
-			statusCode: 200,
-			body: JSON.stringify(bodyJson),
-		});
+
+		if (format === 'markdown') {
+			return {
+				statusCode: 200,
+				body: renderResultMarkdown(bodyJson),
+				headers: {'Content-Type': 'text/markdown; charset=utf-8'},
+			};
+		}
+		return jsonResponse(200, bodyJson);
 	} catch (e) {
-		console.error(e);
-		Sentry.captureException(e);
-		return Promise.resolve({statusCode: 500});
+		if (isMissingObject(e)) {
+			return errorResponse(404, `No result with id "${id}".`);
+		}
+		return failureResponse(e);
 	}
 }
 
 export async function retrieveSample(request: HttpRequest): Promise<HttpResponse> {
+	const id = queryParameter(request, 'id');
+	if (id === undefined) {
+		return errorResponse(400, 'Missing id query parameter.');
+	}
+
 	try {
-		const id = request.queryStringParameters.id;
 		const object = await s3.getObject({
 			Bucket: 'phpstan-drupal-playground',
 			Key: 'api/results/' + id + '.json',
@@ -297,20 +354,22 @@ export async function retrieveSample(request: HttpRequest): Promise<HttpResponse
 		} else {
 			bodyJson.versionedErrors = [{phpVersion: 70400, errors: json.errors}];
 		}
-		return Promise.resolve({
-			statusCode: 200,
-			body: JSON.stringify(bodyJson),
-		});
+		return jsonResponse(200, bodyJson);
 	} catch (e) {
-		console.error(e);
-		Sentry.captureException(e);
-		return Promise.resolve({statusCode: 500});
+		if (isMissingObject(e)) {
+			return errorResponse(404, `No result with id "${id}".`);
+		}
+		return failureResponse(e);
 	}
 }
 
 export async function retrieveLegacyResult(request: HttpRequest): Promise<HttpResponse> {
+	const id = queryParameter(request, 'id');
+	if (id === undefined) {
+		return errorResponse(400, 'Missing id query parameter.');
+	}
+
 	try {
-		const id = request.queryStringParameters.id;
 		const firstTwoChars = id.substr(0, 2);
 		const path = 'data/results/' + firstTwoChars + '/' + id;
 		const inputObject = await s3.getObject({
@@ -333,27 +392,25 @@ export async function retrieveLegacyResult(request: HttpRequest): Promise<HttpRe
 			[80300, 80400],
 		);
 
-		return Promise.resolve({
-			statusCode: 200,
-			body: JSON.stringify({
-				code: inputJson.phpCode,
-				htmlErrors: convert.toHtml(JSON.parse(await outputObject.Body!.transformToString()).output),
-				upToDateTabs: createTabs(result),
-				upToDateVersionedErrors: result,
-				versions,
-				version: inputJson.phpStanVersion,
-				level: inputJson.level.toString(),
-				config: {
-					strictRules: false,
-					bleedingEdge: false,
-					treatPhpDocTypesAsCertain: true,
-				},
-			}),
+		return jsonResponse(200, {
+			code: inputJson.phpCode,
+			htmlErrors: convert.toHtml(JSON.parse(await outputObject.Body!.transformToString()).output),
+			upToDateTabs: createTabs(result),
+			upToDateVersionedErrors: result,
+			versions,
+			version: inputJson.phpStanVersion,
+			level: inputJson.level.toString(),
+			config: {
+				strictRules: false,
+				bleedingEdge: false,
+				treatPhpDocTypesAsCertain: true,
+			},
 		});
 	} catch (e) {
-		console.error(e);
-		Sentry.captureException(e);
-		return Promise.resolve({statusCode: 500});
+		if (isMissingObject(e)) {
+			return errorResponse(404, `No legacy result with id "${id}".`);
+		}
+		return failureResponse(e);
 	}
 }
 
