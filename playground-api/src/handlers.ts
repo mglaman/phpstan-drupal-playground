@@ -3,6 +3,7 @@ import {S3} from '@aws-sdk/client-s3';
 import { v4 as uuid } from 'uuid';
 import * as Sentry from "@sentry/node";
 import {createTabs, PHPStanError, VersionedErrors} from './tabs';
+import {renderResultMarkdown} from './markdown';
 
 Sentry.init({
   dsn: "https://eb2a3a58974934df33e68af214e70607@o4505060230627328.ingest.sentry.io/4506276580818944",
@@ -194,6 +195,7 @@ export async function retrieveResult(request: HttpRequest): Promise<HttpResponse
 	if (id === undefined) {
 		return errorResponse(400, 'Missing id query parameter.');
 	}
+	const format = queryParameter(request, 'format') ?? 'json';
 
 	try {
 		const object = await s3.getObject({
@@ -303,6 +305,13 @@ export async function retrieveResult(request: HttpRequest): Promise<HttpResponse
 			}
 		}
 
+		if (format === 'markdown') {
+			return {
+				statusCode: 200,
+				body: renderResultMarkdown(bodyJson),
+				headers: {'Content-Type': 'text/markdown; charset=utf-8'},
+			};
+		}
 		return jsonResponse(200, bodyJson);
 	} catch (e) {
 		if (isMissingObject(e)) {

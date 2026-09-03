@@ -135,6 +135,27 @@ describe('retrieveResult', () => {
 		expect(body.url).toBe('https://phpstan-drupal.mglaman.dev/r/abc');
 	});
 
+	it('renders Markdown when asked for it', async () => {
+		s3Mock.on(GetObjectCommand).resolves(s3Object({
+			code: '<?php\n\nmodule_load_include(\'inc\', \'foo\');',
+			level: '9',
+			version: 'N/A',
+			config: {strictRules: true},
+			versionedErrors: [{phpVersion: 80300, errors: [sampleError]}, {phpVersion: 80400, errors: [sampleError]}],
+		}));
+		lambdaMock.on(InvokeCommand).resolves(runnerResponse([sampleError]));
+
+		const response = await retrieveResult({body: '', queryStringParameters: {id: 'abc', format: 'markdown'}});
+
+		expect(response.statusCode).toBe(200);
+		expect(response.headers?.['Content-Type']).toBe('text/markdown; charset=utf-8');
+		expect(response.body).toContain('- Share link: https://phpstan-drupal.mglaman.dev/r/abc');
+		expect(response.body).toContain('- Strict rules: on');
+		expect(response.body).toContain('```php\n<?php\n\nmodule_load_include(\'inc\', \'foo\');\n```');
+		expect(response.body).toContain('### PHP 8.3 – 8.4 (1 error)');
+		expect(response.body).toContain('- Line 3: Function module_load_include not found.');
+	});
+
 	it('returns 404 when the result does not exist', async () => {
 		s3Mock.on(GetObjectCommand).rejects(new NoSuchKey({message: 'The specified key does not exist.', $metadata: {}}));
 
