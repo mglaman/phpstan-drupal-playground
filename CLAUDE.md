@@ -71,6 +71,11 @@ changes are caught before an unreviewed production deploy.
 * `website/public/llms.txt` is the public API description for agents. Update
   it whenever a request or response shape changes, and keep it excluded from
   the immutable cache-control in the website deploy.
+* The API role needs `s3:ListBucket` on the results bucket. Without it S3
+  reports a missing key as 403 AccessDenied rather than 404 NoSuchKey, so
+  the 404 handling in `handlers.ts` never fires and dead links answer 500.
+  The unit tests mock S3 and cannot catch this; check production after a
+  policy change.
 * The S3 results bucket has two generations of saved results: current
   `api/results/<uuid>.json` and the legacy sharded
   `data/results/<2-char-prefix>/<id>/input.json` + `output.json` pair served
