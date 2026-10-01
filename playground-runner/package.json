@@ -8,6 +8,6 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
-		"osls": "^4.2.0"
+		"osls": "^4.4.0"
 	}
 }
